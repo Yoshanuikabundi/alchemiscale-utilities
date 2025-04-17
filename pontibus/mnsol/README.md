@@ -53,7 +53,7 @@ To do this, we can use the ``--repeats`` flag.
 Here is an example call for the script w/ 3 repeats per Transformation on the openfe scope:
 
 ```bash
-python submit.py --network_filename network.json --org_scope "openfe" --scope_name_campaign "ofe_v1_2" --scope_name_project "minisolv_oechemelf10" --repeats 3
+micromamba run -n alchemiscale-client python submit.py --network_filename alchemical_network.json --org_scope "openff" --scope_name_campaign "openff_2_0_0" --scope_name_project "minisolv" --repeats 3
 ```
 
 ### 3. Monitoring your simulation
@@ -65,7 +65,7 @@ To help with this, we provide the ``monitor.py` script.
 You can call it like this:
 
 ```bash
-python monitor.py --scope_key scoped-key.dat
+micromamba run -n alchemiscale-client python monitor.py --scope_key scoped-key.dat
 ```
 
 Here ``scoped-key.dat`` is the serialized ScopedKey that we generated when we
@@ -83,7 +83,7 @@ a few times to see what happens.
 You can use the ``--restart`` flag to achieve this:
 
 ```bash
-python monitor.py --scope_key scoped-key.dat --restart
+micromamba run -n alchemiscale-client python monitor.py --scope_key scoped-key.dat --restart
 ```
 
 This will put all errored tasks back into the queue and attempt to run them again.
@@ -96,7 +96,7 @@ Finally, once your simulations are complete, you can gather the free energy resu
 This can be done with ``gather.py`` in the following manner:
 
 ```bash
-python gather.py --scope_key scoped-key.dat --reference_data full_results_mnsol_2_0_0.csv --output_file results.dat
+micromamba run -n alchemiscale-client python gather.py --scope_key scoped-key.dat --reference_data full_results_mnsol_2_0_0.csv --output_file results.dat
 ```
 
 This scripts scans through all the Transformations and gathers ProtocolDAGResults.

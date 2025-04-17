@@ -132,21 +132,26 @@ def run(
     # Create a network and get a scope key
     an_sk = asc.create_network(alchemical_network, scope)
 
+    # When a compute node is ready for a task, it first stochastically
+    # chooses a network, then stochastically chooses a task within that network
+    # The weight is the likelihood that that network/task will be chosen
+    # Choosing a small value allows other networks to take priority on shared
+    # compute nodes.
+    asc.set_network_weight(an_sk, 0.0001)
+
     # store the scoped key
     with open(scopekey_output, 'w') as f:
         f.write(str(an_sk))
 
     # action out tasks
     print(f"Actioning {repeats} repeats for {len(alchemical_network.edges)} transformation")
-    for transform in tqdm(alchemical_network.edges):
-        transform_sk = asc.get_scoped_key(transform, scope)
-        tasks = asc.create_tasks(transform_sk, count=repeats)
-        asc.action_tasks(tasks, an_sk)
-    
+    for transform_sk in tqdm(asc.get_network_transformations(an_sk)):
+        tasks = asc.create_tasks(transform_sk, count=repeats) # will always create a new task
+        asc.action_tasks(tasks, an_sk) # idempotent
+
     # check what the network status looks like
     asc.get_network_status(an_sk)
 
 
 if __name__ == "__main__":
     run()
-
