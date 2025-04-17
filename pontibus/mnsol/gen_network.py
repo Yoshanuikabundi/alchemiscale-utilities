@@ -1,26 +1,25 @@
 import csv
-import json
 import pathlib
-from rdkit import Chem
 
+import zstandard
 from gufe import (
     AlchemicalNetwork,
     ChemicalSystem,
-    Transformation,
     SmallMoleculeComponent,
+    Transformation,
 )
-from gufe.tokenization import JSON_HANDLER
-from openff.toolkit import Molecule
 from openff.units import unit
+from rdkit import Chem
+
+from pontibus.components import ExtendedSolventComponent
 from pontibus.protocols.solvation import ASFEProtocol
 from pontibus.protocols.solvation.settings import PackmolSolvationSettings
-from pontibus.components import ExtendedSolventComponent
 
 
 def get_nonwater_settings():
     # The settings here are effectively the "fast" settings
     # shown in the validation.
-    settings = ASFEProtocol.default_settings()
+    settings: ASFEProtocol = ASFEProtocol.default_settings()
     # Because it's Alchemiscale, you set protocol_repeats to 1 and then
     # run the Transformation task multiple times to get repeats.
     # Locally, the recommendation would be to set this to 3 so that you can
@@ -56,16 +55,52 @@ def get_nonwater_settings():
     # by defining them this way. Note: you have to update n_replica to match
     # the number of lambda windows (and all lambda window lists must be of the same length).
     settings.lambda_settings.lambda_elec = [
-        0.0, 0.25, 0.5, 0.75, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+        0.0,
+        0.25,
+        0.5,
+        0.75,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
     ]
     settings.lambda_settings.lambda_vdw = [
-        0.0, 0.0, 0.0, 0.0, 0.0,
-        0.12, 0.24, 0.36, 0.48, 0.6, 0.7, 0.77, 0.85, 1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.12,
+        0.24,
+        0.36,
+        0.48,
+        0.6,
+        0.7,
+        0.77,
+        0.85,
+        1.0,
     ]
     settings.lambda_settings.lambda_restraints = [
-        0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
     ]
     settings.vacuum_simulation_settings.n_replicas = 14
     settings.solvent_simulation_settings.n_replicas = 14
@@ -78,11 +113,17 @@ def get_nonwater_settings():
     # This is the pre-alchemical equilibration lengths
     # NVT equilibration -> NPT equilibration -> NPT "production" (more equilibration)
     # In vacuum, we set the NVT equilibration to None since it's all gas phase
-    settings.solvent_equil_simulation_settings.equilibration_length_nvt = 0.5 * unit.nanosecond
-    settings.solvent_equil_simulation_settings.equilibration_length = 0.5 * unit.nanosecond
+    settings.solvent_equil_simulation_settings.equilibration_length_nvt = (
+        0.5 * unit.nanosecond
+    )
+    settings.solvent_equil_simulation_settings.equilibration_length = (
+        0.5 * unit.nanosecond
+    )
     settings.solvent_equil_simulation_settings.production_length = 9.5 * unit.nanosecond
     settings.vacuum_equil_simulation_settings.equilibration_length_nvt = None
-    settings.vacuum_equil_simulation_settings.equilibration_length = 0.2 * unit.nanosecond
+    settings.vacuum_equil_simulation_settings.equilibration_length = (
+        0.2 * unit.nanosecond
+    )
     settings.vacuum_equil_simulation_settings.production_length = 0.5 * unit.nanosecond
     # This is the alchemical equilibration length
     settings.solvent_simulation_settings.equilibration_length = 1.0 * unit.nanosecond
@@ -94,11 +135,12 @@ def get_nonwater_settings():
 
 
 def get_transformation(system):
-
     settings = get_nonwater_settings()
 
     # An SFE transformation in GUFE formalism is defined as
     # going from a solute + solvent (stateA) to just solvent (stateB)
+    # The vacuum states are created automatically, and this transformation
+    # includes both the vacuum and solvent legs
     stateA = system
     stateB = ChemicalSystem({"solvent": system.components["solvent"]})
     protocol = ASFEProtocol(settings=settings)
@@ -114,12 +156,17 @@ def smc_dict(ligands: pathlib.Path):
 
     for mol in rdmols:
         smiles = mol.GetProp("smiles")
+
         molecules[smiles] = SmallMoleculeComponent(mol)
 
     return molecules
 
 
-def get_chemical_systems(smcs, csv_benchmark_data: pathlib.Path):
+def get_chemical_systems(
+    smcs,
+    csv_benchmark_data: pathlib.Path,
+    solute_allowlist: set[str] | None = None,
+):
     """
     Using the benchmark data file, create a set of ChemicalSystems
     that contain the solute and solvent Components.
@@ -136,6 +183,8 @@ def get_chemical_systems(smcs, csv_benchmark_data: pathlib.Path):
 
     systems = []
     for entry in benchmark_data:
+        if solute_allowlist is not None and entry[5] not in solute_allowlist:
+            continue
         # ExtendedSolventComponent is a special case of SolventComponent
         # it takes a SmallMoleculeComponent on construction and retains
         # its properties. Technically you could also just use a standard
@@ -161,12 +210,19 @@ def run(ligands: pathlib.Path, csv_benchmark_data: pathlib.Path):
     Create an alchemical network.
     """
     smcs = smc_dict(ligands)
+    print(f"{len(smcs)=}")
 
-    chemical_systems = get_chemical_systems(smcs, csv_benchmark_data)
+    chemical_systems = get_chemical_systems(
+        smcs,
+        csv_benchmark_data,
+        # solute_allowlist={r"COP(=O)(OC)OC", r"CCOP(=O)(OCC)OCC"},
+    )
+    print(f"{len(chemical_systems)=}")
 
     transformations = []
     for chemical_system in chemical_systems:
         transformations.append(get_transformation(chemical_system))
+    print(f"{len(transformations)=}")
 
     alchemical_network = AlchemicalNetwork(transformations)
     alchemical_network.to_json("alchemical_network.json")
