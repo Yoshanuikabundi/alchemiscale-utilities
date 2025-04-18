@@ -19,7 +19,7 @@ To create jobs deployment:
 
 To delete jobs deployment:
 
-    kubectl delete jobs openff-alchemiscale-jobs
+    kubectl delete jobs jm-openff-alchemiscale-jobs
 
 To delete settings secret:
 
