@@ -29,11 +29,19 @@ from alchemiscale import AlchemiscaleClient, Scope, ScopedKey
     required=False,
     default=None,
 )
+@click.option(
+    '--priority',
+    type=float,
+    required=False,
+    default=None,
+    help="Set the priority of the network",
+)
 def run(
     scope_key: pathlib.Path,
     restart: bool,
     user_id: str,
     user_key: str,
+    priority: int | None,
 ):
     """
     Monitor a network of transformation tasks and
@@ -68,6 +76,10 @@ def run(
 
     asc.get_network_status(network_sk)
 
+    if priority is not None:
+        asc.set_network_weight(network_sk, priority)
+        print("Network priority set to", asc.get_network_weight(network_sk))
+
     if restart:
         err_tasks = asc.get_network_tasks(network_sk, status="error")
         print(f"Number of errored tasks found: {len(err_tasks)}")
@@ -79,6 +91,8 @@ def run(
             asc.get_network_status(network_sk)
         else:
             print("No errored tasks were found, no further action")
+
+
 
 
 if __name__ == "__main__":
