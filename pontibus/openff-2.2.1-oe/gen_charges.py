@@ -6,6 +6,7 @@ from openff.toolkit import (
     AmberToolsToolkitWrapper,
     RDKitToolkitWrapper,
 )
+from openff.toolkit.utils.nagl_wrapper import NAGLToolkitWrapper
 from openff.toolkit.utils.base_wrapper import ToolkitWrapper
 from rdkit.Chem.rdmolfiles import SDWriter
 from typing import Iterable
@@ -70,6 +71,13 @@ def run():
         all_smiles=all_smiles,
         partial_charge_method="am1bcc",
         toolkit_registry=AmberToolsToolkitWrapper(),
+    )
+
+    # Generate charges with NAGL and write to SDF file
+    charge_and_write_sdf(
+        all_smiles=all_smiles,
+        partial_charge_method="openff-gnn-am1bcc-0.1.0-rc.3.pt",
+        toolkit_registry=NAGLToolkitWrapper(),
     )
 
 

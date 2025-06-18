@@ -14,3 +14,5 @@ dependencies:
   # Charge generation
   - openeye::openeye-toolkits==2024.2.1
   - ambertools==24.8
+  - openff-nagl==0.5.2
+  - openff-nagl-models==0.3.0
